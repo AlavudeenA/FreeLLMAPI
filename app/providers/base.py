@@ -6,6 +6,7 @@ import httpx
 
 class LLMProvider(Protocol):
     name: str
+    provider_id: str
 
     @property
     def endpoint(self) -> str: ...

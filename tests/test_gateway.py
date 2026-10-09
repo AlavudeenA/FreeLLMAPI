@@ -5,7 +5,7 @@ import httpx
 
 from app.config import Settings
 from app.providers.factory import create_gateway
-from app.schemas import ChatCompletionRequest
+from app.schemas import ChatCompletionRequest, ProviderId
 
 
 def test_rate_limit_falls_through_to_next_available_provider():
@@ -97,6 +97,46 @@ def test_skipped_unconfigured_models_do_not_count_as_fallback():
         assert result.provider == "Groq"
         assert result.fallback_used is False
         assert [attempt.outcome for attempt in result.attempts] == ["skipped", "skipped", "success"]
+
+    asyncio.run(run_test())
+
+
+def test_explicit_provider_selection_only_calls_selected_provider():
+    async def run_test():
+        requests = []
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            payload = json.loads(request.read())
+            assert "provider" not in payload
+            return httpx.Response(
+                200,
+                json={
+                    "model": "openai/gpt-oss-120b",
+                    "choices": [{"message": {"role": "assistant", "content": "groq reply"}}],
+                },
+            )
+
+        settings = Settings(
+            _env_file=None,
+            nvidia_api_key="nvidia-test",
+            groq_api_key="groq-test",
+            intern_api_key=None,
+            cohere_api_key=None,
+        )
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            result = await create_gateway(settings, client).complete(
+                ChatCompletionRequest(
+                    provider=ProviderId.GROQ,
+                    messages=[{"role": "user", "content": "Hello"}],
+                ),
+                request_id="selected-provider-test",
+            )
+
+        assert result.provider == "Groq"
+        assert result.fallback_used is False
+        assert len(requests) == 1
+        assert requests[0].url == "https://api.groq.com/openai/v1/chat/completions"
 
     asyncio.run(run_test())
 

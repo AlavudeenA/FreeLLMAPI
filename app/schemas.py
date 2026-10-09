@@ -1,7 +1,16 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class ProviderId(str, Enum):
+    NVIDIA = "nvidia"
+    GROQ = "groq"
+    INTERN_AI = "intern_ai"
+    COHERE = "cohere"
+    CLOUDFLARE_WORKERS_AI = "cloudflare_workers_ai"
 
 
 class ChatMessage(BaseModel):
@@ -17,6 +26,7 @@ class ChatMessage(BaseModel):
 class ChatCompletionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    provider: ProviderId | None = None
     messages: list[ChatMessage] = Field(min_length=1)
     temperature: float | None = Field(default=None, ge=0, le=2)
     max_tokens: int | None = Field(default=None, gt=0)

@@ -5,6 +5,7 @@ import httpx
 
 class CohereProvider:
     name = "Cohere"
+    provider_id = "cohere"
 
     def __init__(self, client: httpx.AsyncClient, base_url: str, api_key: str | None):
         self._client = client

@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from app.schemas import ProviderId
+
 
 def print_attempts(attempts: Any) -> None:
     if not isinstance(attempts, list):
@@ -29,6 +31,11 @@ def print_attempts(attempts: Any) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Send a prompt to the Free LLM API gateway.")
     parser.add_argument("prompt", nargs="*", help="Prompt text; defaults to a short greeting.")
+    parser.add_argument(
+        "--provider",
+        choices=[provider.value for provider in ProviderId],
+        help="Use one provider instead of the default fallback order.",
+    )
     args = parser.parse_args()
 
     base_url = os.getenv("GATEWAY_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
@@ -39,13 +46,17 @@ def main() -> int:
         headers["Authorization"] = f"Bearer {gateway_api_key}"
 
     try:
+        payload: dict[str, Any] = {
+            "messages": [{"role": "user", "content": prompt_text}],
+            "temperature": 0.2,
+        }
+        if args.provider is not None:
+            payload["provider"] = args.provider
+
         response = httpx.post(
             f"{base_url}/v1/chat/completions",
             headers=headers,
-            json={
-                "messages": [{"role": "user", "content": prompt_text}],
-                "temperature": 0.2,
-            },
+            json=payload,
             timeout=120.0,
         )
     except httpx.RequestError as error:

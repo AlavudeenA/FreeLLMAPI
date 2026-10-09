@@ -5,6 +5,7 @@ import httpx
 
 class CloudflareWorkersAIProvider:
     name = "Cloudflare Workers AI"
+    provider_id = "cloudflare_workers_ai"
 
     def __init__(
         self,
