@@ -1,4 +1,4 @@
-# Free LLM API
+# FreeLLMAPI
 
 A small OpenAI-compatible gateway for your agent projects. It tries the configured models in the order below, moving on when a provider is rate-limited, unavailable, or rejects a request. The response identifies the provider and model that answered and includes a record of every attempt.
 
