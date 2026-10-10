@@ -5,7 +5,7 @@ import httpx
 
 from app.config import Settings
 from app.providers.factory import create_gateway
-from app.schemas import ChatCompletionRequest, ProviderId
+from app.schemas import ChatCompletionRequest
 
 
 def test_rate_limit_falls_through_to_next_available_provider():
@@ -101,14 +101,45 @@ def test_skipped_unconfigured_models_do_not_count_as_fallback():
     asyncio.run(run_test())
 
 
-def test_explicit_provider_selection_only_calls_selected_provider():
+def test_explicit_model_path_selects_matching_provider_and_model():
+    async def run_test():
+        def respond(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.read())
+            assert payload["model"] == "nvidia/nemotron-3-super-120b-a12b"
+            return httpx.Response(
+                200,
+                json={
+                    "model": "nvidia/nemotron-3-super-120b-a12b",
+                    "choices": [{"message": {"role": "assistant", "content": "nvidia direct reply"}}],
+                },
+            )
+
+        settings = Settings(_env_file=None, nvidia_api_key="nvidia-test", groq_api_key="groq-test")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            result = await create_gateway(settings, client).complete(
+                ChatCompletionRequest(
+                    model="nvidia/nemotron-3-super-120b-a12b",
+                    messages=[{"role": "user", "content": "Hello"}],
+                ),
+                request_id="model-path-test",
+            )
+
+        assert result.provider == "NVIDIA NIM"
+        assert result.model == "nvidia/nemotron-3-super-120b-a12b"
+        assert result.provider_model == "nvidia/nemotron-3-super-120b-a12b"
+        assert result.fallback_used is False
+
+    asyncio.run(run_test())
+
+
+def test_explicit_model_selection_only_calls_selected_model():
     async def run_test():
         requests = []
 
         def respond(request: httpx.Request) -> httpx.Response:
             requests.append(request)
             payload = json.loads(request.read())
-            assert "provider" not in payload
+            assert payload["model"] == "openai/gpt-oss-120b"
             return httpx.Response(
                 200,
                 json={
@@ -127,10 +158,10 @@ def test_explicit_provider_selection_only_calls_selected_provider():
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             result = await create_gateway(settings, client).complete(
                 ChatCompletionRequest(
-                    provider=ProviderId.GROQ,
+                    model="openai/gpt-oss-120b",
                     messages=[{"role": "user", "content": "Hello"}],
                 ),
-                request_id="selected-provider-test",
+                request_id="selected-model-test",
             )
 
         assert result.provider == "Groq"

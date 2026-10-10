@@ -8,11 +8,13 @@ from app.providers.cohere import CohereProvider
 from app.providers.groq import GroqProvider
 from app.providers.intern import InternProvider
 from app.providers.nvidia import NvidiaProvider
+from app.providers.openrouter import OpenRouterProvider
 
 
 def create_gateway(settings: Settings, client: httpx.AsyncClient) -> LLMGateway:
     nvidia = NvidiaProvider(client, settings.nvidia_base_url, secret_value(settings.nvidia_api_key))
     groq = GroqProvider(client, settings.groq_base_url, secret_value(settings.groq_api_key))
+    openrouter = OpenRouterProvider(client, settings.openrouter_base_url, secret_value(settings.openrouter_api_key))
     intern = InternProvider(client, settings.intern_base_url, secret_value(settings.intern_api_key))
     cohere = CohereProvider(client, settings.cohere_base_url, secret_value(settings.cohere_api_key))
     cloudflare = CloudflareWorkersAIProvider(
@@ -25,11 +27,12 @@ def create_gateway(settings: Settings, client: httpx.AsyncClient) -> LLMGateway:
 
     routes = (
         ProviderModel(nvidia, settings.nvidia_nemotron_super_model),
-        ProviderModel(nvidia, settings.nvidia_nemotron_nano_model),
-        ProviderModel(groq, settings.groq_model),
         ProviderModel(nvidia, settings.nvidia_glm_flash_model),
-        ProviderModel(intern, settings.intern_model),
+        ProviderModel(groq, settings.groq_model),
+        ProviderModel(openrouter, settings.openrouter_model),
         ProviderModel(cohere, settings.cohere_model),
+        ProviderModel(intern, settings.intern_model),
+        ProviderModel(nvidia, settings.nvidia_nemotron_nano_model),
         ProviderModel(cloudflare, settings.cloudflare_model),
     )
     return LLMGateway(routes)

@@ -10,6 +10,7 @@ from app.providers.cohere import CohereProvider
 from app.providers.groq import GroqProvider
 from app.providers.intern import InternProvider
 from app.providers.nvidia import NvidiaProvider
+from app.providers.openrouter import OpenRouterProvider
 
 
 async def call_provider(name: str, provider: LLMProvider, model: str) -> None:
@@ -68,6 +69,11 @@ async def main() -> None:
                 'Groq',
                 GroqProvider(client, settings.groq_base_url, secret_value(settings.groq_api_key)),
                 settings.groq_model,
+            ),
+            (
+                'OpenRouter',
+                OpenRouterProvider(client, settings.openrouter_base_url, secret_value(settings.openrouter_api_key)),
+                settings.openrouter_model,
             ),
             (
                 'InternAI',

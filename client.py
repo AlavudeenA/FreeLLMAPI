@@ -7,9 +7,6 @@ from typing import Any
 
 import httpx
 
-from app.schemas import ProviderId
-
-
 def print_attempts(attempts: Any) -> None:
     if not isinstance(attempts, list):
         return
@@ -32,9 +29,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Send a prompt to the Free LLM API gateway.")
     parser.add_argument("prompt", nargs="*", help="Prompt text; defaults to a short greeting.")
     parser.add_argument(
-        "--provider",
-        choices=[provider.value for provider in ProviderId],
-        help="Use one provider instead of the default fallback order.",
+        "--model",
+        help="Use a specific model name, for example 'nvidia/nemotron-3-super-120b-a12b' or 'openai/gpt-oss-120b'.",
     )
     args = parser.parse_args()
 
@@ -50,8 +46,8 @@ def main() -> int:
             "messages": [{"role": "user", "content": prompt_text}],
             "temperature": 0.2,
         }
-        if args.provider is not None:
-            payload["provider"] = args.provider
+        if args.model is not None:
+            payload["model"] = args.model
 
         response = httpx.post(
             f"{base_url}/v1/chat/completions",

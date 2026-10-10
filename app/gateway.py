@@ -27,10 +27,19 @@ class LLMGateway:
     async def complete(self, request: ChatCompletionRequest, request_id: str) -> ChatCompletionResponse:
         started_at = time.perf_counter()
         attempts: list[AttemptInfo] = []
-        payload = request.model_dump(exclude_none=True, exclude={"provider", "stream"})
+        payload = request.model_dump(exclude_none=True, exclude={"model", "stream"})
+
         routes = self._routes
-        if request.provider is not None:
-            routes = tuple(route for route in routes if route.provider.provider_id == request.provider.value)
+        if request.model is not None:
+            model_name = request.model.strip()
+            if "/" in model_name:
+                prefix, _, suffix = model_name.partition("/")
+                if suffix:
+                    routes = tuple(route for route in routes if route.model.lower() in {model_name.lower(), suffix.lower()})
+                else:
+                    routes = tuple(route for route in routes if route.model.lower() == model_name.lower())
+            else:
+                routes = tuple(route for route in routes if route.model.lower() == model_name.lower())
 
         for route in routes:
             provider = route.provider
