@@ -172,6 +172,38 @@ def test_explicit_model_selection_only_calls_selected_model():
     asyncio.run(run_test())
 
 
+def test_openrouter_uses_configured_model_fallback_order():
+    async def run_test():
+        def respond(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Authorization"] == "Bearer openrouter-test-token"
+            payload = json.loads(request.read())
+            assert "model" not in payload
+            assert payload["models"] == ["qwen/qwen3.8-27b:free", "openrouter/free"]
+            return httpx.Response(
+                200,
+                json={
+                    "model": "qwen/qwen3.8-27b:free",
+                    "choices": [{"message": {"role": "assistant", "content": "ready"}}],
+                },
+            )
+
+        settings = Settings(_env_file=None, openrouter_api_key="openrouter-test-token")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            result = await create_gateway(settings, client).complete(
+                ChatCompletionRequest(
+                    model="openrouter/free",
+                    messages=[{"role": "user", "content": "Hello"}],
+                ),
+                request_id="openrouter-fallback-test",
+            )
+
+        assert result.provider == "OpenRouter"
+        assert result.model == "qwen/qwen3.8-27b:free"
+        assert result.provider_model == "openrouter/free"
+
+    asyncio.run(run_test())
+
+
 def test_cohere_native_chat_is_normalized_for_gateway_response():
     async def run_test():
         def respond(request: httpx.Request) -> httpx.Response:
