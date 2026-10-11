@@ -8,6 +8,19 @@ from app.providers.factory import create_gateway
 from app.schemas import ChatCompletionRequest
 
 
+def isolated_settings(**overrides) -> Settings:
+    provider_settings = {
+        "nvidia_api_key": None,
+        "groq_api_key": None,
+        "openrouter_api_key": None,
+        "intern_api_key": None,
+        "cohere_api_key": None,
+        "cloudflare_api_token": None,
+        "cloudflare_account_id": None,
+    }
+    return Settings(_env_file=None, **(provider_settings | overrides))
+
+
 def test_rate_limit_falls_through_to_next_available_provider():
     async def run_test():
         def respond(request: httpx.Request) -> httpx.Response:
@@ -23,7 +36,7 @@ def test_rate_limit_falls_through_to_next_available_provider():
                 },
             )
 
-        settings = Settings(_env_file=None, nvidia_api_key="nvidia-test", groq_api_key="groq-test")
+        settings = isolated_settings(nvidia_api_key="nvidia-test", groq_api_key="groq-test")
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             result = await create_gateway(settings, client).complete(
                 ChatCompletionRequest(messages=[{"role": "user", "content": "Hello"}]),
@@ -58,8 +71,7 @@ def test_empty_success_falls_through_to_next_available_provider():
                 json={"model": "openai/gpt-oss-120b", "choices": [{"message": {"content": "ready"}}]},
             )
 
-        settings = Settings(
-            _env_file=None,
+        settings = isolated_settings(
             nvidia_api_key="nvidia-test",
             groq_api_key="groq-test",
             intern_api_key=None,
@@ -87,7 +99,7 @@ def test_skipped_unconfigured_models_do_not_count_as_fallback():
                 json={"model": "openai/gpt-oss-120b", "choices": [{"message": {"content": "ready"}}]},
             )
 
-        settings = Settings(_env_file=None, groq_api_key="groq-test")
+        settings = isolated_settings(groq_api_key="groq-test")
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             result = await create_gateway(settings, client).complete(
                 ChatCompletionRequest(messages=[{"role": "user", "content": "Hello"}]),
@@ -114,7 +126,7 @@ def test_explicit_model_path_selects_matching_provider_and_model():
                 },
             )
 
-        settings = Settings(_env_file=None, nvidia_api_key="nvidia-test", groq_api_key="groq-test")
+        settings = isolated_settings(nvidia_api_key="nvidia-test", groq_api_key="groq-test")
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             result = await create_gateway(settings, client).complete(
                 ChatCompletionRequest(
@@ -148,8 +160,7 @@ def test_explicit_model_selection_only_calls_selected_model():
                 },
             )
 
-        settings = Settings(
-            _env_file=None,
+        settings = isolated_settings(
             nvidia_api_key="nvidia-test",
             groq_api_key="groq-test",
             intern_api_key=None,
@@ -187,7 +198,7 @@ def test_openrouter_uses_configured_model_fallback_order():
                 },
             )
 
-        settings = Settings(_env_file=None, openrouter_api_key="openrouter-test-token")
+        settings = isolated_settings(openrouter_api_key="openrouter-test-token")
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             result = await create_gateway(settings, client).complete(
                 ChatCompletionRequest(
@@ -229,8 +240,7 @@ def test_cohere_native_chat_is_normalized_for_gateway_response():
                 },
             )
 
-        settings = Settings(
-            _env_file=None,
+        settings = isolated_settings(
             nvidia_api_key=None,
             groq_api_key=None,
             intern_api_key=None,
@@ -284,8 +294,7 @@ def test_cloudflare_workers_ai_native_response_is_normalized():
                 },
             )
 
-        settings = Settings(
-            _env_file=None,
+        settings = isolated_settings(
             nvidia_api_key=None,
             groq_api_key=None,
             intern_api_key=None,
@@ -311,3 +320,36 @@ def test_cloudflare_workers_ai_native_response_is_normalized():
     asyncio.run(run_test())
 
 
+def test_intern_ai_chat_completion_uses_openai_compatible_endpoint():
+    async def run_test():
+        def respond(request: httpx.Request) -> httpx.Response:
+            assert request.url == "https://chat.intern-ai.org.cn/api/v1/chat/completions"
+            assert request.headers["Authorization"] == "Bearer intern-test-token"
+            payload = json.loads(request.read())
+            assert payload["model"] == "intern-s2"
+            assert payload["messages"] == [{"role": "user", "content": "Hello"}]
+            return httpx.Response(
+                200,
+                json={
+                    "id": "intern-chat-test",
+                    "model": "intern-s2",
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": "ready"}, "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+                },
+            )
+
+        settings = isolated_settings(intern_api_key="intern-test-token")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            result = await create_gateway(settings, client).complete(
+                ChatCompletionRequest(messages=[{"role": "user", "content": "Hello"}]),
+                request_id="intern-request-test",
+            )
+
+        assert result.provider == "InternAI"
+        assert result.model == "intern-s2"
+        assert result.provider_model == "intern-s2"
+        assert result.provider_endpoint == "https://chat.intern-ai.org.cn/api/v1/chat/completions"
+        assert result.choices[0]["message"]["content"] == "ready"
+        assert result.usage == {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+
+    asyncio.run(run_test())
