@@ -20,10 +20,10 @@ Add the API keys for the providers you want to use to `.env`. Cloudflare also ne
 Start the gateway:
 
 ```powershell
-python -m uvicorn app.main:app --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The API is at `http://127.0.0.1:8000`; interactive docs are at `http://127.0.0.1:8000/docs`.
+Run this from the project directory after completing Setup and activating the virtual environment. `--reload` restarts the server when code changes. The API is at `http://127.0.0.1:8000`; interactive docs are at `http://127.0.0.1:8000/docs`.
 
 In a second terminal, use the default fallback order:
 
