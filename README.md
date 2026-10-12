@@ -51,6 +51,24 @@ python .\client.py --provider cloudflare_workers_ai "What can you help me with?"
 
 Valid choices: `nvidia`, `groq`, `intern_ai`, `cohere`, `cloudflare_workers_ai`. Without `--provider`, the gateway uses its configured fallback order. The response is JSON and includes the provider and endpoint that answered.
 
+You can also call the chat-completion endpoint directly from Python:
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+
+request = Request(
+    "http://127.0.0.1:8000/v1/chat/completions",
+    data=json.dumps(
+        {"messages": [{"role": "user", "content": "What can you help me with?"}]}
+    ).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response))
+```
+
 ## Embeddings
 
 Send one string or a list of strings to `/v1/embeddings`:
@@ -59,6 +77,22 @@ Send one string or a list of strings to `/v1/embeddings`:
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/embeddings `
   -ContentType 'application/json' `
   -Body '{"input":["A sample document","Another document"]}'
+```
+
+Or call the embeddings endpoint from Python:
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+
+request = Request(
+    "http://127.0.0.1:8000/v1/embeddings",
+    data=json.dumps({"input": "Text to embed"}).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response))
 ```
 
 Pass a configured `model` value to pin a request to one model and disable failover. Responses include the selected provider, model, endpoint, and attempted routes. Since different embedding models produce different vector spaces, keep the returned model consistent for indexing and queries; changing models may require re-embedding the existing index.
