@@ -37,6 +37,33 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/rerank `
   -Body '{"query":"What is retrieval augmented generation?","documents":["A recipe for pancakes.","RAG combines retrieval with language generation."],"top_n":1}'
 ```
 
+Python callers can send the query and retrieved documents directly:
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+
+query = "What is retrieval augmented generation?"
+documents = [
+    "A recipe for pancakes.",
+    "RAG combines retrieval with language generation.",
+]
+top_n = 1
+request = Request(
+    "http://127.0.0.1:8000/v1/rerank",
+    data=json.dumps({
+        "model": "jina-reranker-v3",
+        "query": query,
+        "documents": documents,
+        "top_n": top_n,
+    }).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response))
+```
+
 The response's `results` are ordered by relevance and include each document's original `index`, text, and `relevance_score`. Use the index to associate each result with the document supplied in the request.
 
 ## Run
