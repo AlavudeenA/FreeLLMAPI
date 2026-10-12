@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from app.config import Settings
-from app.dependencies import get_embedding_gateway, get_gateway
+from app.dependencies import get_embedding_gateway, get_gateway, get_rerank_gateway
 from app.embeddings.factory import create_embedding_gateway
 from app.embeddings.gateway import (
     EmbeddingGateway,
@@ -18,6 +18,9 @@ from app.embeddings.gateway import (
 from app.embeddings.schemas import EmbeddingErrorResponse, EmbeddingRequest
 from app.gateway import LLMGateway, UpstreamExhaustedError
 from app.providers.factory import create_gateway
+from app.reranking.factory import create_rerank_gateway
+from app.reranking.gateway import RerankGateway, RerankModelNotFoundError, RerankUpstreamError
+from app.reranking.schemas import RerankErrorResponse, RerankRequest
 from app.schemas import ChatCompletionRequest, ErrorDetails, ErrorResponse
 
 settings = Settings()
@@ -28,6 +31,7 @@ async def lifespan(app: FastAPI):
     async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
         app.state.gateway = create_gateway(settings, client)
         app.state.embedding_gateway = create_embedding_gateway(settings, client)
+        app.state.rerank_gateway = create_rerank_gateway(settings, client)
         yield
 
 
@@ -87,5 +91,25 @@ async def create_embedding(
             request_id=request_id,
             error=ErrorDetails(code=error.code, message=str(error)),
             attempts=error.attempts,
+        )
+        return JSONResponse(status_code=error.status_code, content=response.model_dump(mode="json"))
+
+
+@app.post("/v1/rerank")
+async def rerank_documents(
+    body: RerankRequest,
+    gateway: Annotated[RerankGateway, Depends(get_rerank_gateway)],
+    authorization: str | None = Header(default=None),
+):
+    request_id = uuid4().hex
+    _validate_api_key(authorization)
+    try:
+        return await gateway.rerank(body, request_id)
+    except RerankModelNotFoundError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RerankUpstreamError as error:
+        response = RerankErrorResponse(
+            request_id=request_id,
+            error=ErrorDetails(code=error.code, message=str(error)),
         )
         return JSONResponse(status_code=error.status_code, content=response.model_dump(mode="json"))

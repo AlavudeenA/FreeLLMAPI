@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     jina_api_key: SecretStr | None = None
     jina_base_url: str = "https://api.jina.ai/v1"
     jina_embedding_model: str = "jina-embeddings-v5-text-small"
+    jina_reranker_model: str = "jina-reranker-v3"
 
     ollama_base_url: str = "http://127.0.0.1:11434"
     qwen_embedding_model: str = "Qwen/Qwen3-Embedding-0.6B"

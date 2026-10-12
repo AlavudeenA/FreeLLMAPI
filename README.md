@@ -27,6 +27,18 @@ ollama pull nomic-embed-text
 
 Set `JINA_API_KEY` in `.env` to enable Jina. The NVIDIA route uses the existing `NVIDIA_API_KEY`. Ollama is expected at `http://127.0.0.1:11434` by default; configure `OLLAMA_BASE_URL` if needed. A missing cloud API key skips that route; a down or rate-limited provider falls through to the next model.
 
+## Reranking
+
+The `/v1/rerank` endpoint uses Jina Reranker v3 to sort retrieved candidate documents by relevance. It reuses `JINA_API_KEY` and can be pinned to a configured model using `model`.
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/rerank `
+  -ContentType 'application/json' `
+  -Body '{"query":"What is retrieval augmented generation?","documents":["A recipe for pancakes.","RAG combines retrieval with language generation."],"top_n":1}'
+```
+
+The response's `results` are ordered by relevance and include each document's original `index`, text, and `relevance_score`. Use the index to associate each result with the document supplied in the request.
+
 ## Run
 
 Start the gateway:
